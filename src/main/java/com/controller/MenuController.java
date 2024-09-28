@@ -22,7 +22,6 @@ import com.repository.MenuRepository;
 import com.repository.RestaurantRepository;
 import com.service.MenuService;
 
-import ch.qos.logback.core.rolling.helper.FileStoreUtil;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.web.bind.annotation.PutMapping;
 
@@ -122,25 +121,44 @@ public class MenuController {
 	@PutMapping("{menuId}")
 	public ResponseEntity<?> updateMenu(@PathVariable Integer menuId,@RequestBody MenuEntity menuEntity,HttpSession session) {
 		Integer restaurantId = (Integer)session.getAttribute("restaurantId");
-		if(restaurantId == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No restaurantId found in session.Please log in.");
+		if(!menuService.checkLoginOrNot(restaurantId)) {
+			return ResponseEntity.badRequest().body("Please Login First.");
 		}
-		
-		Optional<MenuEntity> op = menuRepository.findById(restaurantId);
+		Optional<MenuEntity> op = menuRepository.findById(menuId);
 		if(op.isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Menu not found");
+			return ResponseEntity.badRequest().body("Menu not found.");
 		}
 		
 		MenuEntity menu = op.get();
-		if(!menu.getRestaurantEntity().getRestaurantId().equals(restaurantId)) {
-			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You don't have permission to access this menu.");
+		
+		if(!menu.isActive()) {
+			return ResponseEntity.badRequest().body("Menu is not active.");
 		}
+		if(menuEntity.getRestaurantEntity() != null) {
+			Integer newRestaurantId = menuEntity.getRestaurantEntity().getRestaurantId();
+			
+			Optional<RestaurantEntity> newRestaurant = restaurantRepository.findById(newRestaurantId);
+			if(newRestaurant.isEmpty()) {
+				return ResponseEntity.badRequest().body("Invalid RestaurantId.");
+			}
+			menu.setRestaurantEntity(newRestaurant.get());
+		}
+		
+		//other wise these works
 		menu.setTitle(menuEntity.getTitle());
 		menu.setMenuImagePath(menuEntity.getMenuImagePath());
 		
 		//save applied
-		MenuEntity updatedMenu = menuRepository.save(menu);
-		return ResponseEntity.ok(updatedMenu);
+		menuRepository.save(menu);
+		
+		MenuBean menuBean = new MenuBean(
+				restaurantId,
+				menu.getTitle(),
+				menu.getMenuImagePath(),
+				menu.getMenuId(),
+				menu.isActive()
+				);
+		return ResponseEntity.ok(menuBean);
 	}
 	
 	//soft delete menu

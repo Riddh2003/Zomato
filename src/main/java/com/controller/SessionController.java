@@ -1,5 +1,8 @@
 package com.controller;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +43,6 @@ public class SessionController {
 	//create restaurant in database or SignUp
 	@PostMapping("/restaurant")
 	public String addRestaurant(@RequestBody RestaurantEntity restaurantEntity) {
-		restaurantEntity.setActive(1);
 		restaurantRepository.save(restaurantEntity);
 		return "Success";
 	}
@@ -66,9 +68,21 @@ public class SessionController {
 						.map(CustomerEntity->{
 							session.setAttribute("customerId", CustomerEntity.getCustomerId());
 							session.setAttribute("role", "customer");
-							return ResponseEntity.ok("Login Successful as Customer"); 
+							
+							Optional<List<RestaurantEntity>> op = restaurantRepository.findByActive(true);
+							List<RestaurantEntity> restaurants = op.get();
+							
+							//Return success message along with restaurants. 
+							Map<String, Object> response = new HashMap<>();
+							response.put("message", "Login Successful as Customer.");
+							response.put("restaurants", restaurants);
+							return ResponseEntity.ok(response); 
 						})
-						.orElse(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invaild Credentials for Customer"));
+						.orElseGet(()->{
+								Map<String,Object> errorResponse = new HashMap<>();
+								errorResponse.put("message", "Invaild Credentials for Customer.");
+								return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+						});
 			case "restaurant":
 				return restaurantRepository.findByEmailAndPassword(email, password)
 						.map(RestaurantEntity->{

@@ -1,11 +1,14 @@
 package com.entity;
 
+import java.util.List;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -29,15 +32,18 @@ public class MenuItemEntity {
 	@JoinColumn(name = "restaurantId")
 	RestaurantEntity restaurantEntity;
 	
-	Integer active;
+	Boolean active = true;
 	String title;
 	String description;
 	String itemaImagePath;
 	Integer price;
-	Integer isOffer;
+	Boolean isOffer = false;
 	Integer offerQty;
 	Integer offerPercentage;
 	Integer offerQtyCount;
 	Integer uptoAmt;
 	Integer uptoAmtCondition;
+	
+	@OneToMany(mappedBy = "menuItemEntity")
+	List<CartItemEntity> cartItems;
 }

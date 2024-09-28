@@ -1,40 +1,38 @@
 package com.entity;
 
-import java.util.List;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "menus")
+@Table(name = "cartItems")
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class MenuEntity {
+public class CartItemEntity {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	Integer menuId;
+	Integer cartItemId;
+
+	//Each cart item belongs to one cart
+	@ManyToOne
+	@JoinColumn(name = "cardId")
+	CartEntity cartEntity;
 	
 	@ManyToOne
-	@JoinColumn(name = "restaurantId")
-	RestaurantEntity restaurantEntity;
+	@JoinColumn(name = "itemId")
+	MenuItemEntity menuItemEntity;
 	
-	boolean active = true; 
-	String title;
-	String menuImagePath;
+	@ManyToOne
+	@JoinColumn(name = "menuId")
+	MenuEntity menuEntity;
 	
-	@OneToMany(mappedBy = "menuEntity")
-	List<MenuItemEntity> menuItems;
-	
-	@OneToMany(mappedBy = "menuEntity")
-	List<CartItemEntity> cartItems;
+	Integer qty;
 }

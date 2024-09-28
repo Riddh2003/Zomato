@@ -1,6 +1,6 @@
 package com.entity;
 
-import java.util.List;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -8,33 +8,30 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
 @Entity
-@Table(name = "menus")
+@Table(name = "customerAddress")
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class MenuEntity {
+public class CustomerAddressEntity {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	Integer menuId;
+	Integer addressId;
 	
 	@ManyToOne
-	@JoinColumn(name = "restaurantId")
-	RestaurantEntity restaurantEntity;
+	@JoinColumn(name = "customerId")
+	@JsonBackReference
+	CustomerEntity customerEntity;
 	
-	boolean active = true; 
 	String title;
-	String menuImagePath;
-	
-	@OneToMany(mappedBy = "menuEntity")
-	List<MenuItemEntity> menuItems;
-	
-	@OneToMany(mappedBy = "menuEntity")
-	List<CartItemEntity> cartItems;
+	String addressLine;
+	String pincode;
+	String lat;
+	String log;
+	Boolean isactive = true;
 }
