@@ -1,5 +1,7 @@
 package com.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -24,14 +26,17 @@ public class CartItemEntity {
 	//Each cart item belongs to one cart
 	@ManyToOne
 	@JoinColumn(name = "cardId")
+	@JsonBackReference
 	CartEntity cartEntity;
 	
 	@ManyToOne
 	@JoinColumn(name = "itemId")
+	@JsonBackReference
 	MenuItemEntity menuItemEntity;
 	
 	@ManyToOne
 	@JoinColumn(name = "menuId")
+	@JsonBackReference
 	MenuEntity menuEntity;
 	
 	Integer qty;

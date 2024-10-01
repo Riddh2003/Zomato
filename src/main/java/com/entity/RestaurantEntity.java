@@ -1,8 +1,10 @@
 package com.entity;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -19,8 +21,6 @@ import lombok.experimental.FieldDefaults;
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RestaurantEntity {
-	
-	
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,11 +40,11 @@ public class RestaurantEntity {
 	Boolean active = true;
 	String restaurantImagePath;
 	
-	@JsonIgnore
 	@OneToMany(mappedBy = "restaurantEntity")
-	List<MenuEntity> menus;
+	@JsonManagedReference
+	List<MenuEntity> menus = new ArrayList<>();
 	
-	@JsonIgnore
 	@OneToMany(mappedBy = "restaurantEntity")
-	List<CartEntity> carts;//restaurant have multiple cart
+	@JsonBackReference
+	List<CartEntity> carts = new ArrayList<>();//restaurant have multiple cart
 }

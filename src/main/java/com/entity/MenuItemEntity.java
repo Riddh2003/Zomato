@@ -1,7 +1,9 @@
 package com.entity;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -26,10 +28,12 @@ public class MenuItemEntity {
 	
 	@ManyToOne
 	@JoinColumn(name = "menuId")
+	@JsonBackReference
 	MenuEntity menuEntity;
 	
 	@ManyToOne
 	@JoinColumn(name = "restaurantId")
+	@JsonBackReference
 	RestaurantEntity restaurantEntity;
 	
 	Boolean active = true;
@@ -45,5 +49,6 @@ public class MenuItemEntity {
 	Integer uptoAmtCondition;
 	
 	@OneToMany(mappedBy = "menuItemEntity")
-	List<CartItemEntity> cartItems;
+	@JsonBackReference
+	List<CartItemEntity> cartItems = new ArrayList<>();
 }

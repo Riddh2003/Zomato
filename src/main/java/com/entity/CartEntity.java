@@ -1,6 +1,10 @@
 package com.entity;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -28,17 +32,22 @@ public class CartEntity {
 	//Many carts can belong to one customer
 	@ManyToOne
 	@JoinColumn(name = "customerId")
+	@JsonBackReference
 	CustomerEntity customerEntity;
 	
 	//Each cart is associated with one restaurant
 	@ManyToOne
 	@JoinColumn(name = "restaurantId")
+	@JsonManagedReference
 	RestaurantEntity restaurantEntity;
 	
 	@OneToMany(mappedBy = "cartEntity",cascade = CascadeType.ALL)
-	List<CartItemEntity> cartItems;
+	@JsonManagedReference
+	List<CartItemEntity> cartItems = new ArrayList<>();
 	
+	Integer offerAmount;
 	Integer totalQty;
+	Float totalPrice;
 }
 /*
  * 

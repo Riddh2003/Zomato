@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.condition.ConsumesRequestCondition;
 
+import com.bean.RestaurantBean;
 import com.entity.RestaurantEntity;
 import com.repository.RestaurantRepository;
 import com.service.RestaurantService;
@@ -58,7 +60,9 @@ public class RestaurantController {
 	
 	//update restaurant
 	@PutMapping("{restaurantId}")
-	public ResponseEntity<?> updateRestaurantById(@PathVariable Integer restaurantId,@RequestBody RestaurantEntity restaurantEntity,HttpSession session){
+	public ResponseEntity<?> updateRestaurantById(@PathVariable Integer restaurantId,
+			@RequestBody RestaurantBean restaurantBean,
+			HttpSession session){
 		String str = restaurantService.checkLoginOrNot(restaurantId);
 		if(!str.toLowerCase().equals("success")) {
 			return ResponseEntity.badRequest().body(str);
@@ -68,22 +72,23 @@ public class RestaurantController {
 		if(!op.isPresent()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Restaurant not found with ID: " + restaurantId);
 		}
-		if(!restaurant.getRestaurantId().equals((Integer) session.getAttribute("restaurantId"))) {
+		Integer loginRestaurantId = (Integer) session.getAttribute("restaurantId");
+		if(loginRestaurantId == null || !restaurant.getRestaurantId().equals(loginRestaurantId)) {
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not authorized to update the details."); 
 		}
-		restaurant.setTitle(restaurantEntity.getTitle());
-		restaurant.setCategory(restaurantEntity.getCategory());
-		restaurant.setDescription(restaurantEntity.getDescription());
-		restaurant.setTimings(restaurantEntity.getTimings());
-		restaurant.setAddress(restaurantEntity.getAddress());
-		restaurant.setContactNum(restaurantEntity.getContactNum());
-		restaurant.setLat(restaurantEntity.getLat());
-		restaurant.setLog(restaurantEntity.getLog());
-		restaurant.setPincode(restaurantEntity.getPincode());
-		restaurant.setOnline(restaurantEntity.getOnline());
-		restaurant.setEmail(restaurantEntity.getEmail());
-		restaurant.setPassword(restaurantEntity.getPassword());
-		restaurant.setRestaurantImagePath(restaurantEntity.getRestaurantImagePath());
+		restaurant.setTitle(restaurantBean.getTitle());
+		restaurant.setCategory(restaurantBean.getCategory());
+		restaurant.setDescription(restaurantBean.getDescription());
+		restaurant.setTimings(restaurantBean.getTimings());
+		restaurant.setAddress(restaurantBean.getAddress());
+		restaurant.setContactNum(restaurantBean.getContactNum());
+		restaurant.setLat(restaurantBean.getLat());
+		restaurant.setLog(restaurantBean.getLog());
+		restaurant.setPincode(restaurantBean.getPincode());
+		restaurant.setOnline(restaurantBean.getOnline());
+		restaurant.setEmail(restaurantBean.getEmail());
+		restaurant.setPassword(restaurantBean.getPassword());
+		restaurant.setRestaurantImagePath(restaurantBean.getRestaurantImagePath());
 		
 		RestaurantEntity updatedRestaurant = restaurantRepository.save(restaurant);
 		return ResponseEntity.ok(updatedRestaurant);

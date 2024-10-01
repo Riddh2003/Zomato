@@ -38,5 +38,6 @@ public class CustomerEntity {
 	List<CustomerAddressEntity> addresses;
 	
 	@OneToMany(mappedBy = "customerEntity")
+	@JsonManagedReference
 	List<CartEntity> carts;
 }

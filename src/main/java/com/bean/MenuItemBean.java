@@ -14,6 +14,7 @@ public class MenuItemBean {
 	String description;
 	String itemaImagePath;
 	Integer price;
+	Boolean isOffer;
 	Integer offerQty;
 	Integer offerPercentage;
 	Integer offerQtyCount;
