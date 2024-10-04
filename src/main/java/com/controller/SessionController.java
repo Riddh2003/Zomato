@@ -23,7 +23,9 @@ import com.entity.CartItemEntity;
 import com.entity.CustomerEntity;
 import com.entity.MenuEntity;
 import com.entity.MenuItemEntity;
+import com.bean.CustomerBean;
 import com.bean.LoginBean;
+import com.bean.RestaurantBean;
 import com.entity.RestaurantEntity;
 import com.repository.CustomerRepository;
 import com.repository.RestaurantRepository;
@@ -49,23 +51,48 @@ public class SessionController {
 	
 	@Autowired
 	BCryptPasswordEncoder encoder;
-		
+	
 	//create restaurant in database or SignUp
 	@PostMapping("/restaurant")
-	public String addRestaurant(@RequestBody RestaurantEntity restaurantEntity) {
-		restaurantEntity.setPassword(encoder.encode(restaurantEntity.getPassword()));
+	public ResponseEntity<?> addRestaurant(@RequestBody RestaurantBean restaurantBean) {
+		//set in restaurantEntity
+		RestaurantEntity restaurantEntity = new RestaurantEntity();
+		
+		restaurantEntity.setTitle(restaurantBean.getTitle());
+		restaurantEntity.setCategory(restaurantBean.getCategory());
+		restaurantEntity.setDescription(restaurantBean.getDescription());
+		restaurantEntity.setTimings(restaurantBean.getTimings());
+		restaurantEntity.setAddress(restaurantBean.getAddress());
+		restaurantEntity.setContactNum(restaurantBean.getContactNum());
+		restaurantEntity.setLat(restaurantBean.getLat());
+		restaurantEntity.setLog(restaurantBean.getLog());
+		restaurantEntity.setPincode(restaurantBean.getPincode());
+		restaurantEntity.setOnline(restaurantBean.getOnline());
+		restaurantEntity.setPassword(encoder.encode(restaurantBean.getPassword()));
+		restaurantEntity.setEmail(restaurantBean.getEmail());
+		restaurantEntity.setRestaurantImagePath(restaurantBean.getRestaurantImagePath());
+		
 		restaurantRepository.save(restaurantEntity);
-		return "Success";
+		return ResponseEntity.ok("Successfully SignUp as Restaurant.");
 	}
 	
 	//create customer or SignUp
 	@PostMapping("/customer")
-	public String addCustomer(@RequestBody CustomerEntity customerEntity) {
-//		System.out.println(customerEntity.getFirstName());
-//		System.out.println(customerEntity.getLastName());
-		customerEntity.setPassword(encoder.encode(customerEntity.getPassword()));
+	public ResponseEntity<?> addCustomer(@RequestBody CustomerBean customerBean) {
+		CustomerEntity customerEntity = new CustomerEntity();
+		
+		customerEntity.setFirstName(customerBean.getFirstName());
+		customerEntity.setLastName(customerBean.getLastName());
+		customerEntity.setEmail(customerBean.getEmail());
+		customerEntity.setPassword(encoder.encode(customerBean.getPassword()));
+		customerEntity.setProfilePicPath(customerBean.getProfilePicPath());
+		customerEntity.setOtp(customerBean.getOtp());
+		customerEntity.setGender(customerBean.getGender());
+		customerEntity.setBornYear(customerBean.getBornYear());
+		customerEntity.setContactNum(customerBean.getContactNum());
+		
 		customerRepository.save(customerEntity);
-		return "Success";
+		return ResponseEntity.ok("Successfully SignUp as Customer.");
 	}
 	
 	@PostMapping("/login")
@@ -76,11 +103,17 @@ public class SessionController {
 		
 		switch (role) {
 			case "customer":
-				return customerRepository.findByEmailAndPassword(email, password)
+				return customerRepository.findByEmail(email)
 						.map((CustomerEntity customerEntity) -> {
-						    session.setAttribute("customerId", customerEntity.getCustomerId());
-						    session.setAttribute("role", "customer");
-						    
+							String enpwd = customerEntity.getPassword();
+							if(encoder.matches(password, enpwd) == true) {								
+								session.setAttribute("customerId", customerEntity.getCustomerId());
+								session.setAttribute("role", "customer");
+							}else {
+								Map<String,Object> error = new HashMap<>();
+								error.put("message", "Invaild Credentials for Customer.");
+								return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+							}
 						    // Fetch active restaurants
 						    Optional<List<RestaurantEntity>> op = restaurantRepository.findByActive(true);
 						    List<RestaurantEntity> restaurants = op.get();
@@ -117,38 +150,56 @@ public class SessionController {
 						        }
 						        restaurantData.put("restaurant", restaurant);
 						        
-						        // Include cart and cart items for the customer and restaurant
+						     // Include cart and cart items for the customer and restaurant
 						        List<CartEntity> customerCarts = restaurant.getCarts().stream()
 						                .filter(cart -> cart.getCustomerEntity().getCustomerId().equals(customerEntity.getCustomerId()))
 						                .collect(Collectors.toList());
-						        
+
 						        List<Map<String, Object>> cartDataList = new ArrayList<>();
 						        for (CartEntity cart : customerCarts) {
 						            List<CartItemEntity> cartItems = cart.getCartItems();
+						            
 						            if (!cartItems.isEmpty()) {
 						                Map<String, Object> cartData = new HashMap<>();
 						                cartData.put("cartId", cart.getCartId());
-						                cartData.put("cartItems", cartItems);
 						                cartData.put("customerId", cart.getCustomerEntity().getCustomerId());
 						                cartData.put("restaurantId", cart.getRestaurantEntity().getRestaurantId());
+						                
+						                // Create a list to hold cart item details
+						                List<Map<String, Object>> cartItemDetailsList = new ArrayList<>();
+						                
+						                for (CartItemEntity cartItem : cartItems) {
+						                    Map<String, Object> cartItemDetails = new HashMap<>();
+						                    cartItemDetails.put("cartItemId", cartItem.getCartItemId());
+						                    cartItemDetails.put("menuId", cartItem.getMenuEntity().getMenuId());
+						                    cartItemDetails.put("itemId", cartItem.getMenuItemEntity().getItemId());
+						                    cartItemDetails.put("itemTitle", cartItem.getMenuItemEntity().getTitle());
+						                    cartItemDetails.put("quantity", cartItem.getQty());
+						                    cartItemDetails.put("price", cartItem.getMenuItemEntity().getPrice() * cartItem.getQty());
+						                    
+						                    // Add this item to the cartItemDetailsList
+						                    cartItemDetailsList.add(cartItemDetails);
+						                }       
+						                // Add the list of cart item details to the cart data
+						                cartData.put("cartItems", cartItemDetailsList);
+						                
+						                // Add the cart data to the main cartDataList
 						                cartDataList.add(cartData);
 						            }
 						        }
-
 						        // Add cart data to the restaurant data if exists
 						        if (cartDataList.isEmpty()) {
 						            restaurantData.put("CartMessage", "No cart items for " + restaurant.getTitle() + " Restaurant.");
 						        } else {
 						            restaurantData.put("carts", cartDataList);
-						        }
-						        
+						        }			        
 						        restaurantDataList.add(restaurantData);
 						    }
 						    
 						    // Prepare final response
 						    Map<String, Object> response = new HashMap<>();
 						    response.put("message", "Login Successful as customer.");
-						    response.put("restaurants", restaurantDataList);
+						    response.put("login customer", restaurantDataList);
 						    return ResponseEntity.ok(response);
 						})
 						.orElseGet(()->{
@@ -157,14 +208,21 @@ public class SessionController {
 								return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
 						});
 			case "restaurant":
-				return restaurantRepository.findByEmailAndPassword(email, password)
-						.map(RestaurantEntity -> {
-						    // Set restaurant session attributes
-						    session.setAttribute("restaurantId", RestaurantEntity.getRestaurantId());
-						    session.setAttribute("role", "restaurant");
+				return restaurantRepository.findByEmail(email)
+						.map((RestaurantEntity restaurantEntity) -> {
+							String enpwd = restaurantEntity.getPassword();
+							if(encoder.matches(password, enpwd) == true) {								
+								// Set restaurant session attributes
+								session.setAttribute("restaurantId", restaurantEntity.getRestaurantId());
+								session.setAttribute("role", "restaurant");								
+							}else {
+								Map<String,Object> error = new HashMap<>();
+								error.put("message", "Invaild Credentials for Restaurant.");
+								return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+							}
 
 						    // Get active menus of the restaurant
-						    List<MenuEntity> activeMenus = RestaurantEntity.getMenus().stream()
+						    List<MenuEntity> activeMenus = restaurantEntity.getMenus().stream()
 						        .filter(MenuEntity::isActive) // Only active menus
 						        .collect(Collectors.toList());
 
@@ -186,7 +244,7 @@ public class SessionController {
 						    if(menuDataList.isEmpty()) {
 						    	restaurantData.put("MenuMessage","Menu is Empty.So, You can add the Menu Details.");
 						    }
-						    restaurantData.put("restaurant", RestaurantEntity);
+						    restaurantData.put("restaurant", restaurantEntity);
 
 						    return ResponseEntity.ok(restaurantData);
 						})
@@ -213,7 +271,7 @@ public class SessionController {
 		Object value = null;
 		switch (role) {
 			case "customer": 
-				value = customerRepository.findByEmail(email);
+				value = (Object)customerRepository.findByEmail(email);
 				break;
 			case "restaurant":
 				value = (Object)restaurantRepository.findByEmail(email);
@@ -225,7 +283,6 @@ public class SessionController {
 		if(value == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User Not Found!!");
 		}
-		
 		String otp = otpservice.otpGenerater();
 		SimpleMailMessage message = new SimpleMailMessage();
 	    message.setTo(email);
@@ -264,7 +321,7 @@ public class SessionController {
 					return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Customer Not Found.");
 				}
 				CustomerEntity customer = op.get();
-				customer.setPassword(newpassword);
+				customer.setPassword(encoder.encode(newpassword));
 				customerRepository.save(customer);
 				break;
 			case "restaurant":
@@ -273,7 +330,7 @@ public class SessionController {
 					return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Customer Not Found.");
 				}
 				RestaurantEntity restaurant = op1.get();
-				restaurant.setPassword(newpassword);
+				restaurant.setPassword(encoder.encode(newpassword));
 				restaurantRepository.save(restaurant);
 				break;
 			default:

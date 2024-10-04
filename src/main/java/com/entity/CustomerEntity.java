@@ -32,6 +32,7 @@ public class CustomerEntity {
 	String gender;
 	String bornYear;
 	String contactNum;
+	Boolean active = true;
 	
 	@OneToMany(mappedBy = "customerEntity")
 	@JsonManagedReference

@@ -4,7 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,56 +15,101 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bean.CustomerBean;
 import com.entity.CustomerEntity;
 import com.repository.CustomerRepository;
+import com.service.CustomerService;
+
+import jakarta.servlet.http.HttpSession;
 
 @RestController
 @RequestMapping("/api/customer")
-public class CustomerController {
+public class CustomerController{
 	
 	@Autowired
 	CustomerRepository customerRepository;
 	
+	@Autowired
+	CustomerService customerService;
+	
+	@Autowired
+	BCryptPasswordEncoder encoder;
+	
 	//read all customer
 	@GetMapping
 	public ResponseEntity<List<CustomerEntity>> getAllCustomer() {
-	 List<CustomerEntity> customers = customerRepository.findAll();
-	 return ResponseEntity.ok(customers);
+		Optional<List<CustomerEntity>> op = customerRepository.findByActive(true);
+		if(op.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+		}
+		List<CustomerEntity> customers = op.get();
+//		List<CustomerEntity> customers = customerRepository.findAll();
+		return ResponseEntity.ok(customers);
 	}
 	
 	//customer get by it id
 	@GetMapping("{customerId}")
-	public ResponseEntity<CustomerEntity> getCustomerById(@PathVariable("customerId") Integer customerId) {
-		Optional<CustomerEntity> op = customerRepository.findById(customerId);
+	public ResponseEntity<?> getCustomerById(@PathVariable Integer customerId,HttpSession session) {
+		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
+		String authenticatestr = customerService.checkLoginorNot(customerId, loginCustomerId);
+		if(!authenticatestr.equalsIgnoreCase("success")) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized person as customer.");
+		}
+		Optional<CustomerEntity> op = customerRepository.findById(loginCustomerId);
 		if(op.isEmpty()) {
 			return ResponseEntity.noContent().build();
 		}
 		else {
 			CustomerEntity customerEntity = op.get();
 			return ResponseEntity.ok(customerEntity);
-//			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
 		}
+	}
+	
+	//update customer by it id
+	@PutMapping
+	public ResponseEntity<?> updateCustomer(@RequestBody CustomerBean customerBean,HttpSession session){
+		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
+		String authenticatestr = customerService.checkLoginorNot(customerBean.getCustomerId(), loginCustomerId);
+		if(!authenticatestr.equalsIgnoreCase("success")) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized person as customer.");
+		}
+		Optional<CustomerEntity> op = customerRepository.findById(customerBean.getCustomerId());
+		if(op.isEmpty()) {
+			return ResponseEntity.ok("Invalid CustomerId");
+		}
+		CustomerEntity customerEntity = op.get();
+		
+		customerEntity.setFirstName(customerBean.getFirstName());
+		customerEntity.setLastName(customerBean.getLastName());
+		customerEntity.setEmail(customerBean.getEmail());
+		customerEntity.setPassword(encoder.encode(customerBean.getPassword()));
+		customerEntity.setProfilePicPath(customerBean.getProfilePicPath());
+		customerEntity.setGender(customerBean.getGender());
+		customerEntity.setBornYear(customerBean.getBornYear());
+		customerEntity.setContactNum(customerBean.getContactNum());
+		customerEntity.setActive(customerBean.getActive());
+		
+		customerRepository.save(customerEntity);
+		return ResponseEntity.ok("Customer Details are successfully updated.");
 	}
 	
 	//customer delete by it id
 	@DeleteMapping("{customerId}")
-	public String deleteCustomer(@PathVariable("customerId") Integer customerId) {
-		customerRepository.deleteById(customerId);
-		return "sucess";
-	}
-	
-	
-	//update customer by it id
-	@PutMapping
-	public ResponseEntity<?> updateCustomer(@RequestBody CustomerEntity customerEntity){
-		Optional<CustomerEntity> op = customerRepository.findById(customerEntity.getCustomerId());
+	public ResponseEntity<?> deleteCustomer(@PathVariable("customerId") Integer customerId,HttpSession session) {
+		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
+		String authenticatestr = customerService.checkLoginorNot(customerId, loginCustomerId);
+		if(!authenticatestr.equalsIgnoreCase("success")) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized person as customer.");
+		}
+		Optional<CustomerEntity> op = customerRepository.findById(loginCustomerId);
 		if(op.isEmpty()) {
-			return ResponseEntity.ok("Invalid CustomerId");
+			return ResponseEntity.noContent().build();
 		}
-		else {
-			customerRepository.save(customerEntity);
-			return ResponseEntity.ok(customerEntity);
-		}
+		CustomerEntity customerEntity = op.get();
+		
+		customerEntity.setActive(false);
+		
+		customerRepository.save(customerEntity);
+		return ResponseEntity.ok("Customer is successfully soft deleted.");
 	}
-	
 }

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.condition.ConsumesRequestCondition;
 
 import com.bean.RestaurantBean;
 import com.entity.RestaurantEntity;
@@ -68,7 +67,7 @@ public class RestaurantController {
 			return ResponseEntity.badRequest().body(str);
 		}
 		Optional<RestaurantEntity> op = restaurantRepository.findById(restaurantId);
-		RestaurantEntity restaurant = op.get();
+		RestaurantEntity restaurant = op.get() ;
 		if(!op.isPresent()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Restaurant not found with ID: " + restaurantId);
 		}
@@ -99,7 +98,7 @@ public class RestaurantController {
 	public ResponseEntity<?> softDeleteRestaurant(@PathVariable Integer restaurantId,HttpSession session){
 		Integer loginRestaurantId = (Integer) session.getAttribute("restaurantId");
 		String loginStatus = restaurantService.checkLoginOrNot(loginRestaurantId);
-		if(!loginStatus.equalsIgnoreCase("success")) {
+		if(!loginStatus.equalsIgnoreCase("success")){
 			return ResponseEntity.badRequest().body(loginStatus);
 		}
 		Optional<RestaurantEntity> op = restaurantRepository.findById(restaurantId);

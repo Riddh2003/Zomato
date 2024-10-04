@@ -2,6 +2,7 @@ package com.controller;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -10,6 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,7 +44,7 @@ public class CartController {
 	@Autowired
 	CartRepository cartRepository;
 	
-	@PostMapping
+	@PostMapping("/addtocart")
 	public ResponseEntity<?> addtoCart(@RequestParam Integer itemId,
 			@RequestParam Integer qty,
 			HttpSession session){
@@ -108,22 +110,22 @@ public class CartController {
 		//save to the cart
 		cartRepository.save(cartEntity);
 		
-		
 		// Build a simplified response
 	    Map<String, Object> cartResponse = new HashMap<>();
 	    cartResponse.put("cartId", cartEntity.getCartId());
 	    cartResponse.put("restaurantId", cartEntity.getRestaurantEntity().getRestaurantId());
 
-	    List<Map<String, Object>> cartItemsResponse = cartEntity.getCartItems().stream().map(cartItem -> {
-	        Map<String, Object> cartItemData = new HashMap<>();
-	        cartItemData.put("cartItemId", cartItem.getCartItemId());
-	        cartItemData.put("menuId", cartItem.getMenuEntity().getMenuId());
-	        cartItemData.put("menuItemId", cartItem.getMenuItemEntity().getItemId());
-	        cartItemData.put("menuItemTitle", cartItem.getMenuItemEntity().getTitle());
-	        cartItemData.put("quantity", cartItem.getQty());
-	        cartItemData.put("price", cartItem.getMenuItemEntity().getPrice() * cartItem.getQty());
-	        return cartItemData;
-	    }).collect(Collectors.toList());
+	    List<Map<String, Object>> cartItemsResponse = cartEntity.getCartItems().stream()
+	    	.map(cartItem -> {
+		        Map<String, Object> cartItemData = new HashMap<>();
+		        cartItemData.put("cartItemId", cartItem.getCartItemId());
+		        cartItemData.put("menuId", cartItem.getMenuEntity().getMenuId());
+		        cartItemData.put("menuItemId", cartItem.getMenuItemEntity().getItemId());
+		        cartItemData.put("menuItemTitle", cartItem.getMenuItemEntity().getTitle());
+		        cartItemData.put("quantity", cartItem.getQty());
+		        cartItemData.put("price", cartItem.getMenuItemEntity().getPrice() * cartItem.getQty());
+		        return cartItemData;
+	    	}).collect(Collectors.toList());
 
 	    cartResponse.put("cartItems", cartItemsResponse);
 
@@ -134,4 +136,48 @@ public class CartController {
 
 		return ResponseEntity.ok(response);
 	}
+	
+	//get all cart and cartItem 
+	@GetMapping
+	public ResponseEntity<?> getAllcarts(HttpSession session){
+		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
+		if (loginCustomerId == null) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Please log in as a customer.");
+		}	
+		Optional<CustomerEntity> customer = customerRepository.findById(loginCustomerId);
+		if(customer.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Customer not found.");
+		}
+		CustomerEntity customerEntity = customer.get();
+		Optional<List<CartEntity>> op = cartRepository.findByCustomerEntity(customerEntity);
+		if(op.isEmpty() || op.get().isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No carts found for the customer.");
+		}
+		
+		List<CartEntity> carts = op.get();
+		List<Map<String, Object>> cartDataList = new ArrayList<>();
+		
+		for(CartEntity cart: carts) {
+			Map<String, Object> cartData = new HashMap<>();
+			cartData.put("cartId",cart.getCartId());
+			cartData.put("customerId", cart.getCustomerEntity().getCustomerId());
+			cartData.put("restaurantId", cart.getRestaurantEntity().getRestaurantId());
+			
+			List<Map<String, Object>> cartItemDataList = new ArrayList<>();
+			for(CartItemEntity cartItem : cart.getCartItems()) {
+				Map<String, Object> cartItemData = new HashMap<>();
+				cartItemData.put("cartItemId", cartItem.getCartItemId());
+	            cartItemData.put("menuItemId", cartItem.getMenuItemEntity().getItemId());
+	            cartItemData.put("menuItemTitle", cartItem.getMenuItemEntity().getTitle());
+	            cartItemData.put("quantity", cartItem.getQty());
+	            cartItemData.put("price", cartItem.getMenuItemEntity().getPrice() * cartItem.getQty());
+	            
+	            cartItemDataList.add(cartItemData);
+			}
+			cartData.put("cartItems", cartItemDataList);
+			cartDataList.add(cartData);
+		}
+		return ResponseEntity.ok(cartDataList);
+	}
+	
 }
