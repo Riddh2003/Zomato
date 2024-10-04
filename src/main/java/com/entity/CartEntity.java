@@ -38,7 +38,7 @@ public class CartEntity {
 	//Each cart is associated with one restaurant
 	@ManyToOne
 	@JoinColumn(name = "restaurantId")
-	@JsonManagedReference
+	@JsonBackReference
 	RestaurantEntity restaurantEntity;
 	
 	@OneToMany(mappedBy = "cartEntity",cascade = CascadeType.ALL)
