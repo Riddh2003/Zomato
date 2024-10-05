@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -223,6 +224,32 @@ public class CartController {
 		cartData.put("cartItems", cartItemDataList);
 		
 		return ResponseEntity.ok(cartData);
+	}
+	
+	@DeleteMapping
+	public ResponseEntity<?> deleteCartById(@RequestParam Integer cartId, HttpSession session){
+		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
+		if (loginCustomerId == null) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Please log in as a customer.");
+		}	
+		Optional<CustomerEntity> customer = customerRepository.findById(loginCustomerId);
+		if(customer.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Customer not found.");
+		}
+		CustomerEntity customerEntity = customer.get();
+		Optional<CartEntity> op = cartRepository.findById(cartId);
+		if(op.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Cart not found.");
+		}
+		CartEntity cartEntity = op.get();
+		if(!customerEntity.getCustomerId().equals(cartEntity.getCustomerEntity().getCustomerId())) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized to delete the cart.");
+		}
+		if(!cartEntity.getCartId().equals(cartId)) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("This cart not found for this id: "+cartId);
+		}
+		cartRepository.deleteById(cartId);
+		return ResponseEntity.ok("Cart successfully deleted.");
 	}
 	
 }
