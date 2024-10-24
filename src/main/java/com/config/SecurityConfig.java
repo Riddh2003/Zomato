@@ -1,35 +1,29 @@
 package com.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfiguration;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.filter.TokenFilter;
 
-import com.fasterxml.jackson.core.filter.TokenFilter;
-import com.service.CustomerService;
+import jakarta.servlet.Filter;
 
+@Configuration
 @EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfiguration {
-	@Autowired
-	TokenFilter tokenFilter;
-
-	@Autowired
-	CustomerService customerService;
-
+public class SecurityConfig {
 	@Bean
-	public AuthenticationManager authenticationManagerBean() throws Exception {
-		return super.authenticationManagerBean();
+	public SecurityFilterChain filterChain(HttpSecurity http, TokenFilter tokenFilter) throws Exception {
+		return http.csrf(csrf -> csrf.disable())
+				.authorizeHttpRequests(
+						auth -> auth.requestMatchers("/api/public/**").permitAll().requestMatchers("/api/private/**")
+								.hasAnyAuthority("restaurant", "customer").anyRequest().authenticated())
+				.addFilterBefore((Filter) tokenFilter, UsernamePasswordAuthenticationFilter.class).build();
 	}
-
-	protected void configure(HttpSecurity http) throws Exception {
-		http.csrf().disable().authorizeRequests().antMatchers("/authenticate").permitAll().anyRequest().authenticated()
-				.and().sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-		http.addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
-	}
+	
+	@Bean
+    public TokenFilter tokenFilter() {
+        return new TokenFilter();
+    }
 }

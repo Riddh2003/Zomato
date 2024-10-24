@@ -1,17 +1,14 @@
 package com.filter;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-
-import com.service.CustomerService;
-import com.service.RestaurantService;
 import com.utility.JwtUtility;
-
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,33 +22,49 @@ public class TokenFilter implements Filter {
 
 	@Autowired
 	private JwtUtility jwtUtility;
-	
-	@Autowired
-	CustomerService customerService;
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
+		HttpServletRequest req = (HttpServletRequest) request;
+        String url = req.getRequestURL().toString();
 
-		final String authorizationHeader = ((HttpServletRequest) request).getHeader("Authorization");
+        if (url.contains("/public/")) {
+            chain.doFilter(request, response);
+            return;
+        }
 
-		String username = null;
-		String jwt = null;
+        String token = req.getHeader("Authorization");
+        System.out.println("Token from filter - 1 : " + token);
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7); // Remove 'Bearer ' prefix
+            System.out.println("Token from filter - 2 : " + token);
 
-		if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-			jwt = authorizationHeader.substring(7);
-			username = jwtUtility.extractUsername(jwt);
-		}
+            if (jwtUtility.validateToken(token)) {
+                String email = jwtUtility.validateTokeAndGetEmail(token);
+                String role = jwtUtility.validateTokenAndGetRole(token);
 
-		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			String customerService = this.customerService.getEmailByToken(jwt);
-			if (jwtUtility.validateToken(jwt, customerService.getEmailByToken(jwt))) {
-				UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-						customerService, null, customerService.getAuthorities());
-				authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-				SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-			}
-		}
-		chain.doFilter(request, response);
-	}
+                // Create authentication object
+                UsernamePasswordAuthenticationToken authentication = 
+                    new UsernamePasswordAuthenticationToken(email, null, 
+                    List.of(new SimpleGrantedAuthority(role)));
+                
+                // Set the authentication in the context
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                System.out.println("Email: " + email);
+                System.out.println("Role: " + role);
+
+                chain.doFilter(request, response);
+            } else {
+                HttpServletResponse res = (HttpServletResponse) response;
+                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                res.getWriter().write("Invalid or expired token");
+            }
+        } else {
+            HttpServletResponse res = (HttpServletResponse) response;
+            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            res.getWriter().write("Missing or invalid Authorization header");
+        }
+    }
 }

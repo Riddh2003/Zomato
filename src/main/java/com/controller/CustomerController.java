@@ -23,7 +23,7 @@ import com.service.CustomerService;
 import jakarta.servlet.http.HttpSession;
 
 @RestController
-@RequestMapping("/api/customer")
+@RequestMapping("/api/private/customer")
 public class CustomerController{
 	
 	@Autowired
@@ -49,36 +49,26 @@ public class CustomerController{
 	
 	//customer get by it id
 	@GetMapping("{customerId}")
-	public ResponseEntity<?> getCustomerById(@PathVariable Integer customerId,HttpSession session) {
-		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
-		String authenticatestr = customerService.checkLoginorNot(customerId, loginCustomerId);
-		if(!authenticatestr.equalsIgnoreCase("success")) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized person as customer.");
-		}
-		Optional<CustomerEntity> op = customerRepository.findById(loginCustomerId);
+	public ResponseEntity<?> getCustomerById(@PathVariable Integer customerId) {
+		Optional<CustomerEntity> op = customerRepository.findById(customerId);
 		if(op.isEmpty()) {
 			return ResponseEntity.noContent().build();
 		}
 		else {
-			CustomerEntity customerEntity = op.get();
-			return ResponseEntity.ok(customerEntity);
+			return ResponseEntity.ok(op.get());
 		}
 	}
 	
 	//update customer by it id
 	@PutMapping
-	public ResponseEntity<?> updateCustomer(@RequestBody CustomerBean customerBean,HttpSession session){
-		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
-		String authenticatestr = customerService.checkLoginorNot(customerBean.getCustomerId(), loginCustomerId);
-		if(!authenticatestr.equalsIgnoreCase("success")) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized person as customer.");
-		}
+	public ResponseEntity<?> updateCustomer(@RequestBody CustomerBean customerBean){
 		Optional<CustomerEntity> op = customerRepository.findById(customerBean.getCustomerId());
 		if(op.isEmpty()) {
 			return ResponseEntity.ok("Invalid CustomerId");
 		}
-		CustomerEntity customerEntity = op.get();
 		
+		// Q: sir we write directly like customerRepository.save(customerBean)
+		CustomerEntity customerEntity = op.get();
 		customerEntity.setFirstName(customerBean.getFirstName());
 		customerEntity.setLastName(customerBean.getLastName());
 		customerEntity.setEmail(customerBean.getEmail());
@@ -95,18 +85,12 @@ public class CustomerController{
 	
 	//customer delete by it id
 	@DeleteMapping("{customerId}")
-	public ResponseEntity<?> deleteCustomer(@PathVariable("customerId") Integer customerId,HttpSession session) {
-		Integer loginCustomerId = (Integer)session.getAttribute("customerId");
-		String authenticatestr = customerService.checkLoginorNot(customerId, loginCustomerId);
-		if(!authenticatestr.equalsIgnoreCase("success")) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized person as customer.");
-		}
-		Optional<CustomerEntity> op = customerRepository.findById(loginCustomerId);
+	public ResponseEntity<?> deleteCustomer(@PathVariable("customerId") Integer customerId) {
+		Optional<CustomerEntity> op = customerRepository.findById(customerId);
 		if(op.isEmpty()) {
 			return ResponseEntity.noContent().build();
 		}
 		CustomerEntity customerEntity = op.get();
-		
 		customerEntity.setActive(false);
 		
 		customerRepository.save(customerEntity);

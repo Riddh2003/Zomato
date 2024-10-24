@@ -1,66 +1,64 @@
 package com.utility;
 
+import java.security.NoSuchAlgorithmException;
 import java.sql.Date;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
-
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import org.springframework.stereotype.Component;
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 
 @Component
 public class JwtUtility {
-	 private String SECRET_KEY = "mysecretkey";
+	private String secretKey = "";
 
-	    // Extract username from JWT token
-	    public String extractUsername(String token) {
-	        return extractClaim(token, Claims::getSubject);
-	    }
+	// Extract username from JWT token
+	public JwtUtility() {
+		try {
+			KeyGenerator keyGen = KeyGenerator.getInstance("HmacSHA256");
+			SecretKey sk = keyGen.generateKey();
+			secretKey = Base64.getEncoder().encodeToString(sk.getEncoded());
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("Error initializing JWT Key ", e);
+		}
+	}
 
-	    // Extract specific claims
-	    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-	        final Claims claims = extractAllClaims(token);
-	        return claimsResolver.apply(claims);
-	    }
+	public String generateToken(String email, String role) {
+		Map<String, Object> claims = new HashMap<>();
+		claims.put("role", role);
+		return Jwts.builder().setClaims(claims).setSubject(email).setIssuedAt(new Date(System.currentTimeMillis()))
+				.setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour validity
+				.signWith(getKey(), SignatureAlgorithm.HS256).compact();
+	}
 
-	    // Extract all claims from JWT
-	    private Claims extractAllClaims(String token) {
-	        return Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token).getBody();
-	    }
+	private java.security.Key getKey() {
+		byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+		return Keys.hmacShaKeyFor(keyBytes);
+	}
 
-	    // Check if token is expired
-	    public Boolean isTokenExpired(String token) {
-	        return extractExpiration(token).before(new java.util.Date());
-	    }
+	public boolean validateToken(String token) {
+		try {
+			Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(token);
+			return true;
+		} catch (Exception e) {
+			System.out.println("Invalid or expired token: " + e.getMessage());
+			return false;
+		}
+	}
 
-	    // Extract expiration date from JWT token
-	    public Date extractExpiration(String token) {
-	        return (Date)extractClaim(token, Claims::getExpiration);
-	    }
+	public String validateTokeAndGetEmail(String token) {
+		Claims claims = Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(token).getBody();
+		return claims.getSubject();
+	}
 
-	    // Generate JWT token
-	    public String generateToken(String username) {
-	        Map<String, Object> claims = new HashMap<>();
-	        return createToken(claims, username);
-	    }
-
-	    // Create JWT token
-	    private String createToken(Map<String, Object> claims, String subject) {
-	        return Jwts.builder()
-	                .setClaims(claims)
-	                .setSubject(subject)
-	                .setIssuedAt(new Date(System.currentTimeMillis()))
-	                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
-	                .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
-	                .compact();
-	    }
-
-	    // Validate JWT token
-	    public Boolean validateToken(String token, String username) {
-	        final String extractedUsername = extractUsername(token);
-	        return (extractedUsername.equals(username) && !isTokenExpired(token));
-	    }
+	public String validateTokenAndGetRole(String token) {
+		Claims claims = Jwts.parserBuilder().setSigningKey(getKey()).build().parseClaimsJws(token).getBody();
+		return claims.get("role", String.class); // Extract the role
+	}
 }
