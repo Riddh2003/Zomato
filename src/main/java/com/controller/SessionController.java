@@ -30,11 +30,12 @@ import com.entity.RestaurantEntity;
 import com.repository.CustomerRepository;
 import com.repository.RestaurantRepository;
 import com.service.Otpservice;
+import com.service.TokenGeneraterService;
 
 import jakarta.servlet.http.HttpSession;
 
 @RestController
-@RequestMapping("/api/session")
+@RequestMapping("/api/public/session")
 public class SessionController {
 		
 	@Autowired
@@ -51,6 +52,9 @@ public class SessionController {
 	
 	@Autowired
 	BCryptPasswordEncoder encoder;
+	
+	@Autowired
+	TokenGeneraterService tokenGeneraterService;
 	
 	//create restaurant in database or SignUp
 	@PostMapping("/restaurant")
@@ -96,111 +100,117 @@ public class SessionController {
 	}
 	
 	@PostMapping("/login")
-	public ResponseEntity<?> login(@RequestBody LoginBean loginBean,HttpSession session) {
+	public ResponseEntity<?> login(@RequestBody LoginBean loginBean) {
 		String role = loginBean.getRole().toLowerCase();
 		String email = loginBean.getEmail();
 		String password = loginBean.getPassword();
+		String token = tokenGeneraterService.tokenGenerater();
 		
 		switch (role) {
 			case "customer":
 				return customerRepository.findByEmail(email)
 						.map((CustomerEntity customerEntity) -> {
 							String enpwd = customerEntity.getPassword();
-							if(encoder.matches(password, enpwd) == true) {								
-								session.setAttribute("customerId", customerEntity.getCustomerId());
-								session.setAttribute("role", "customer");
+							if(encoder.matches(password, enpwd) == true && email == customerEntity.getEmail()) {								
+								//session.setAttribute("customerId", customerEntity.getCustomerId());
+								//session.setAttribute("role", "customer");
+								// Fetch active restaurants
+								customerEntity.setToken(token);
+								customerRepository.save(customerEntity);
+							    Optional<List<RestaurantEntity>> op = restaurantRepository.findByActive(true);
+							    List<RestaurantEntity> restaurants = op.get();
+							    
+							    // Prepare data for each restaurant
+							    List<Map<String, Object>> restaurantDataList = new ArrayList<>();
+							    for (RestaurantEntity restaurant : restaurants){
+							        
+							        // Filter active menus
+							        List<MenuEntity> menus = restaurant.getMenus().stream()
+							                .filter(MenuEntity::isActive)
+							                .collect(Collectors.toList());
+							        
+							        List<Map<String, Object>> menuDataList = new ArrayList<>();
+							        for (MenuEntity menu : menus) {
+							            
+							            // Filter active menu items
+							            List<MenuItemEntity> menuItems = menu.getMenuItems().stream()
+							                    .filter(MenuItemEntity::getActive)
+							                    .collect(Collectors.toList());
+							            
+							            if (!menuItems.isEmpty()) {
+							                Map<String, Object> menuData = new HashMap<>();
+							                menuData.put("menu", menu);
+							                menuData.put("menuItems", menuItems);
+							                menuDataList.add(menuData);
+							            }
+							        }
+
+							        // Prepare restaurant data
+							        Map<String, Object> restaurantData = new HashMap<>();
+							        if (menuDataList.isEmpty()) {
+							            restaurantData.put("MenuMessage", "Menu is Empty. So, you can't order from " + restaurant.getTitle() + " Restaurant.");
+							        }
+							        restaurantData.put("restaurant", restaurant);
+							        
+							     // Include cart and cart items for the customer and restaurant
+							        List<CartEntity> customerCarts = restaurant.getCarts().stream()
+							                .filter(cart -> cart.getCustomerEntity().getCustomerId().equals(customerEntity.getCustomerId()))
+							                .collect(Collectors.toList());
+
+							        List<Map<String, Object>> cartDataList = new ArrayList<>();
+							        for (CartEntity cart : customerCarts) {
+							            List<CartItemEntity> cartItems = cart.getCartItems();
+							            
+							            if (!cartItems.isEmpty()) {
+							                Map<String, Object> cartData = new HashMap<>();
+							                cartData.put("cartId", cart.getCartId());
+							                cartData.put("customerId", cart.getCustomerEntity().getCustomerId());
+							                cartData.put("restaurantId", cart.getRestaurantEntity().getRestaurantId());
+							                
+							                // Create a list to hold cart item details
+							                List<Map<String, Object>> cartItemDetailsList = new ArrayList<>();
+							                
+							                for (CartItemEntity cartItem : cartItems) {
+							                    Map<String, Object> cartItemDetails = new HashMap<>();
+							                    cartItemDetails.put("cartItemId", cartItem.getCartItemId());
+							                    cartItemDetails.put("menuId", cartItem.getMenuEntity().getMenuId());
+							                    cartItemDetails.put("itemId", cartItem.getMenuItemEntity().getItemId());
+							                    cartItemDetails.put("itemTitle", cartItem.getMenuItemEntity().getTitle());
+							                    cartItemDetails.put("quantity", cartItem.getQty());
+							                    cartItemDetails.put("price", cartItem.getMenuItemEntity().getPrice() * cartItem.getQty());
+							                    
+							                    // Add this item to the cartItemDetailsList
+							                    cartItemDetailsList.add(cartItemDetails);
+							                }       
+							                // Add the list of cart item details to the cart data
+							                cartData.put("cartItems", cartItemDetailsList);
+							                
+							                // Add the cart data to the main cartDataList
+							                cartDataList.add(cartData);
+							            }
+							        }
+							        // Add cart data to the restaurant data if exists
+							        if (cartDataList.isEmpty()) {
+							            restaurantData.put("CartMessage", "No cart items for " + restaurant.getTitle() + " Restaurant.");
+							        } else {
+							            restaurantData.put("carts", cartDataList);
+							        }			        
+							        restaurantDataList.add(restaurantData);
+							    }
+							    
+							    // Prepare final response
+							    Map<String, Object> response = new HashMap<>();
+							    response.put("message", "Login Successful as customer.");
+							    response.put("login customer", restaurantDataList);
+							    return ResponseEntity.ok()
+							    		.header("Authorization","Bearer "+token)
+							    		.body(response);
+
 							}else {
 								Map<String,Object> error = new HashMap<>();
 								error.put("message", "Invaild Credentials for Customer.");
 								return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
 							}
-						    // Fetch active restaurants
-						    Optional<List<RestaurantEntity>> op = restaurantRepository.findByActive(true);
-						    List<RestaurantEntity> restaurants = op.get();
-						    
-						    // Prepare data for each restaurant
-						    List<Map<String, Object>> restaurantDataList = new ArrayList<>();
-						    for (RestaurantEntity restaurant : restaurants){
-						        
-						        // Filter active menus
-						        List<MenuEntity> menus = restaurant.getMenus().stream()
-						                .filter(MenuEntity::isActive)
-						                .collect(Collectors.toList());
-						        
-						        List<Map<String, Object>> menuDataList = new ArrayList<>();
-						        for (MenuEntity menu : menus) {
-						            
-						            // Filter active menu items
-						            List<MenuItemEntity> menuItems = menu.getMenuItems().stream()
-						                    .filter(MenuItemEntity::getActive)
-						                    .collect(Collectors.toList());
-						            
-						            if (!menuItems.isEmpty()) {
-						                Map<String, Object> menuData = new HashMap<>();
-						                menuData.put("menu", menu);
-						                menuData.put("menuItems", menuItems);
-						                menuDataList.add(menuData);
-						            }
-						        }
-
-						        // Prepare restaurant data
-						        Map<String, Object> restaurantData = new HashMap<>();
-						        if (menuDataList.isEmpty()) {
-						            restaurantData.put("MenuMessage", "Menu is Empty. So, you can't order from " + restaurant.getTitle() + " Restaurant.");
-						        }
-						        restaurantData.put("restaurant", restaurant);
-						        
-						     // Include cart and cart items for the customer and restaurant
-						        List<CartEntity> customerCarts = restaurant.getCarts().stream()
-						                .filter(cart -> cart.getCustomerEntity().getCustomerId().equals(customerEntity.getCustomerId()))
-						                .collect(Collectors.toList());
-
-						        List<Map<String, Object>> cartDataList = new ArrayList<>();
-						        for (CartEntity cart : customerCarts) {
-						            List<CartItemEntity> cartItems = cart.getCartItems();
-						            
-						            if (!cartItems.isEmpty()) {
-						                Map<String, Object> cartData = new HashMap<>();
-						                cartData.put("cartId", cart.getCartId());
-						                cartData.put("customerId", cart.getCustomerEntity().getCustomerId());
-						                cartData.put("restaurantId", cart.getRestaurantEntity().getRestaurantId());
-						                
-						                // Create a list to hold cart item details
-						                List<Map<String, Object>> cartItemDetailsList = new ArrayList<>();
-						                
-						                for (CartItemEntity cartItem : cartItems) {
-						                    Map<String, Object> cartItemDetails = new HashMap<>();
-						                    cartItemDetails.put("cartItemId", cartItem.getCartItemId());
-						                    cartItemDetails.put("menuId", cartItem.getMenuEntity().getMenuId());
-						                    cartItemDetails.put("itemId", cartItem.getMenuItemEntity().getItemId());
-						                    cartItemDetails.put("itemTitle", cartItem.getMenuItemEntity().getTitle());
-						                    cartItemDetails.put("quantity", cartItem.getQty());
-						                    cartItemDetails.put("price", cartItem.getMenuItemEntity().getPrice() * cartItem.getQty());
-						                    
-						                    // Add this item to the cartItemDetailsList
-						                    cartItemDetailsList.add(cartItemDetails);
-						                }       
-						                // Add the list of cart item details to the cart data
-						                cartData.put("cartItems", cartItemDetailsList);
-						                
-						                // Add the cart data to the main cartDataList
-						                cartDataList.add(cartData);
-						            }
-						        }
-						        // Add cart data to the restaurant data if exists
-						        if (cartDataList.isEmpty()) {
-						            restaurantData.put("CartMessage", "No cart items for " + restaurant.getTitle() + " Restaurant.");
-						        } else {
-						            restaurantData.put("carts", cartDataList);
-						        }			        
-						        restaurantDataList.add(restaurantData);
-						    }
-						    
-						    // Prepare final response
-						    Map<String, Object> response = new HashMap<>();
-						    response.put("message", "Login Successful as customer.");
-						    response.put("login customer", restaurantDataList);
-						    return ResponseEntity.ok(response);
 						})
 						.orElseGet(()->{
 								Map<String,Object> errorResponse = new HashMap<>();
@@ -211,43 +221,47 @@ public class SessionController {
 				return restaurantRepository.findByEmail(email)
 						.map((RestaurantEntity restaurantEntity) -> {
 							String enpwd = restaurantEntity.getPassword();
-							if(encoder.matches(password, enpwd) == true) {								
+							if(encoder.matches(password, enpwd) == true && email == restaurantEntity.getEmail()) {								
 								// Set restaurant session attributes
-								session.setAttribute("restaurantId", restaurantEntity.getRestaurantId());
-								session.setAttribute("role", "restaurant");								
+//								session.setAttribute("restaurantId", restaurantEntity.getRestaurantId());
+//								session.setAttribute("role", "restaurant");	
+								// Get active menus of the restaurant
+								restaurantEntity.setToken(token);
+								restaurantRepository.save(restaurantEntity);
+							    List<MenuEntity> activeMenus = restaurantEntity.getMenus().stream()
+							        .filter(MenuEntity::isActive) // Only active menus
+							        .collect(Collectors.toList());
+
+							    // Prepare data for active menus and their active items
+								List<Map<String, Object>> menuDataList = activeMenus.stream().map(menu -> {
+							        List<MenuItemEntity> activeMenuItems = menu.getMenuItems().stream()
+							            .filter(MenuItemEntity::getActive) // Only active items
+							            .collect(Collectors.toList());
+
+							        Map<String, Object> menuData = new HashMap<>();
+							        menuData.put("menu", menu);
+							        menuData.put("menuItems", activeMenuItems);
+							        return menuData;
+							    }).collect(Collectors.toList());
+
+							    // Prepare restaurant data without cart details
+								Map<String, Object> restaurantData = new HashMap<>();
+							    restaurantData.put("LoginMessage", "Login successfully as Restaurant.");
+							    if(menuDataList.isEmpty()) {
+							    	restaurantData.put("MenuMessage","Menu is Empty.So, You can add the Menu Details.");
+							    }
+							    restaurantData.put("restaurant", restaurantEntity);
+
+							    return ResponseEntity.ok()
+							    		.header("Authorization","Bearer " +token)
+							    		.body(restaurantData);
+
 							}else {
 								Map<String,Object> error = new HashMap<>();
 								error.put("message", "Invaild Credentials for Restaurant.");
 								return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
 							}
-
-						    // Get active menus of the restaurant
-						    List<MenuEntity> activeMenus = restaurantEntity.getMenus().stream()
-						        .filter(MenuEntity::isActive) // Only active menus
-						        .collect(Collectors.toList());
-
-						    // Prepare data for active menus and their active items
-							List<Map<String, Object>> menuDataList = activeMenus.stream().map(menu -> {
-						        List<MenuItemEntity> activeMenuItems = menu.getMenuItems().stream()
-						            .filter(MenuItemEntity::getActive) // Only active items
-						            .collect(Collectors.toList());
-
-						        Map<String, Object> menuData = new HashMap<>();
-						        menuData.put("menu", menu);
-						        menuData.put("menuItems", activeMenuItems);
-						        return menuData;
-						    }).collect(Collectors.toList());
-
-						    // Prepare restaurant data without cart details
-							Map<String, Object> restaurantData = new HashMap<>();
-						    restaurantData.put("LoginMessage", "Login successfully as Restaurant.");
-						    if(menuDataList.isEmpty()) {
-						    	restaurantData.put("MenuMessage","Menu is Empty.So, You can add the Menu Details.");
-						    }
-						    restaurantData.put("restaurant", restaurantEntity);
-
-						    return ResponseEntity.ok(restaurantData);
-						})
+						   })
 						.orElseGet(()->{
 							Map<String,Object> errorResponse = new HashMap<>();
 							errorResponse.put("message", "Invaild Credentials for Restaurant.");

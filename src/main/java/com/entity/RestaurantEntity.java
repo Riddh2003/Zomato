@@ -39,6 +39,7 @@ public class RestaurantEntity {
 	String password;
 	Boolean active = true;
 	String restaurantImagePath;
+	String token;
 	
 	@OneToMany(mappedBy = "restaurantEntity")
 	@JsonManagedReference

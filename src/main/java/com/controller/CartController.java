@@ -86,7 +86,7 @@ public class CartController {
 					newCartEntity.setCustomerEntity(customerEntity);
 					newCartEntity.setRestaurantEntity(restaurantEntity);
 					newCartEntity.setCartItems(new ArrayList<>());
-//					newCartEntity.setTotalQty(qty);
+//					newCartEntity.setTotalQty();
 					return newCartEntity;					
 				}));
 		CartEntity cartEntity = cart.get();

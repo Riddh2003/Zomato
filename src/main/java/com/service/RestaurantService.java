@@ -32,4 +32,15 @@ public class RestaurantService {
 	    }   
 	    return "Success";  // Everything is fine
 	}
+	
+	public String getEmailByToken(String token) {
+		Optional<RestaurantEntity> op =  restaurantRepository.findByToken(token);
+		if(op.isEmpty()){
+			return null;
+		}
+		else {
+			RestaurantEntity restaurantEntity = op.get();
+			return restaurantEntity.getEmail();
+		}
+	}
 }

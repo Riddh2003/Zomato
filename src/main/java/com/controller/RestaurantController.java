@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.bean.RestaurantBean;
 import com.entity.RestaurantEntity;
 import com.repository.RestaurantRepository;
@@ -30,6 +30,9 @@ public class RestaurantController {
 	
 	@Autowired
 	RestaurantService restaurantService;
+	
+	@Autowired
+	BCryptPasswordEncoder encoder;
 	
 	//Read all restaurant
 	@GetMapping
@@ -86,7 +89,7 @@ public class RestaurantController {
 		restaurant.setPincode(restaurantBean.getPincode());
 		restaurant.setOnline(restaurantBean.getOnline());
 		restaurant.setEmail(restaurantBean.getEmail());
-		restaurant.setPassword(restaurantBean.getPassword());
+		restaurant.setPassword(encoder.encode(restaurantBean.getPassword()));
 		restaurant.setRestaurantImagePath(restaurantBean.getRestaurantImagePath());
 		
 		RestaurantEntity updatedRestaurant = restaurantRepository.save(restaurant);

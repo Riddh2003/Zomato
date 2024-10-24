@@ -11,4 +11,5 @@ import com.entity.CustomerEntity;
 public interface CustomerRepository extends JpaRepository<CustomerEntity, Integer>{
 	Optional<CustomerEntity> findByEmail(String email);
 	Optional<List<CustomerEntity>> findByActive(boolean active);
+	Optional<CustomerEntity> findByToken(String token);
 }

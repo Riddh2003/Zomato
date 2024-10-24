@@ -12,4 +12,5 @@ import java.util.List;
 public interface RestaurantRepository extends JpaRepository<RestaurantEntity, Integer> {
 	Optional<RestaurantEntity> findByEmail(String email);
 	Optional<List<RestaurantEntity>> findByActive(boolean active);
+	Optional<RestaurantEntity> findByToken(String token);
 }
