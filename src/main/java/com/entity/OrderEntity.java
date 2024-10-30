@@ -24,16 +24,17 @@ public class OrderEntity {
 	@ManyToOne
 	@JoinColumn(name = "customerId")
 	@JsonBackReference
-	CustomerEntity customerEntity;
+	CustomerEntity customer;
 	
 //	cartId;
 	@ManyToOne
 	@JoinColumn(name = "cartId")
 	@JsonBackReference
-	CartEntity cartEntity;
+	CartEntity cart;
 	
-	Float totalPaid;
+	Double totalPaid;
 	String authCode;
+	String transactionId;
 	Integer status;
 	String paymentType;
 	String orderDate;
